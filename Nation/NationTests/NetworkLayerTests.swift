@@ -9,13 +9,45 @@ import XCTest
 @testable import Nation
 
 class NetworkLayerTests: XCTestCase {
-    func testConnectivityFail() {
-        let networkClient = NetworkClient(networkMonitor: NetworkMonitorFailMock())
+    var networkMonitor: NetworkMonitorProtocol!
+    var networkClient: NetworkClient!
+    var session: URLSession!
+    
+    override func setUp() {
+        networkMonitor = MockNetworkMonitorSuccess()
         
-        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        session = URLSession(configuration: config)
+        
+        networkClient = NetworkClient(session: session, networkMonitor: networkMonitor)
+    }
+    
+    override func tearDown() {
+        networkMonitor = nil
+        networkClient = nil
+        session = nil
+        
+        super.tearDown()
+    }
+    
+    func testConnectionFail() {
+        let networkMonitor = MockNetworkMonitorFail()
+        XCTAssertFalse(networkMonitor.checkConnection())
+    }
+    
+    func testConnectionSuccess() {
+        let networkMonitor = MockNetworkMonitorSuccess()
+        XCTAssertTrue(networkMonitor.checkConnection())
+    }
+    
+    func testConnectivityFail() {
+        let failNetworkClient = NetworkClient(networkMonitor: MockNetworkMonitorFail())
+        
+        failNetworkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
             switch result {
             case .success(_):
-                XCTFail()
+                XCTFail("Expected failure .noConnection, but got isConnected")
             case .failure(let error):
                 XCTAssertEqual(error, .noConnection)
             }
@@ -23,32 +55,132 @@ class NetworkLayerTests: XCTestCase {
     }
     
     func testConnectivitySuccess() {
-        let networkClient = NetworkClient(networkMonitor: NetworkMonitorSuccessMock())
+        let successNetworkClient = NetworkClient(networkMonitor: MockNetworkMonitorSuccess())
         
-        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+        successNetworkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
             switch result {
             case .success(_):
                 break
             case .failure(_):
-                XCTFail()
+                XCTFail("Expected success isConnected, but got noConnection")
             }
         }
     }
     
     func testBadURL() {
-        let networkClient = NetworkClient(networkMonitor: NetworkMonitorSuccessMock())
+        let networkClient = NetworkClient(networkMonitor: MockNetworkMonitorSuccess())
         
         networkClient.fetchData(endPoint: Endpoint(action: .none)) { result in
             switch result {
             case .success(_):
-                XCTFail()
+                XCTFail("Expected failure")
             case .failure(let error):
                 XCTAssertEqual(error, .badURL)
             }
         }
     }
+    
+    func testInvalidHTTPResponse() {
+        MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 404, httpVersion: nil, headerFields: nil)
+        
+        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected failure, but got success")
+            case .failure(let error):
+                XCTAssertEqual(error, .httpError(404))
+            }
+        }
+    }
+    
+    func testValidHTTPResponse() {
+        MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
+        
+        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+            switch result {
+            case .success:
+                break
+            case .failure:
+                XCTFail("Expected success")
+            }
+        }
+    }
+    
+    func testNoDataResponse() {
+        MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
+        
+        MockURLProtocol.testData = nil
+        
+        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected failure, but got success")
+            case .failure(let error):
+                XCTAssertEqual(error, .noData)
+            }
+        }
+    }
+    
+    func testDadaResponse() {
+        MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
+        
+        let mockData = "{sucess: true}".data(using: .utf8)
+        
+        MockURLProtocol.testData = mockData
+        
+        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
+            switch result {
+            case .success(let data):
+                XCTAssertEqual(data, mockData)
+            case .failure:
+                XCTFail("Expected failure, but got success")
+            }
+        }
+    }
 }
 
-class URLSessionMock: URLProtocol {
+class MockURLProtocol: URLProtocol {
+    static var testResponse: HTTPURLResponse?
+    static var testData: Data?
+    static var testError: Error?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        return request
+    }
+
+    override func startLoading() {
+        if let testError = MockURLProtocol.testError {
+            self.client?.urlProtocol(self, didFailWithError: testError)
+        } else {
+            if let testResponse = MockURLProtocol.testResponse {
+                self.client?.urlProtocol(self, didReceive: testResponse, cacheStoragePolicy: .notAllowed)
+            }
+            if let testData = MockURLProtocol.testData {
+                self.client?.urlProtocol(self, didLoad: testData)
+            }
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+
+    override func stopLoading() { }
+}
+
+class MockNetworkMonitorFail: NetworkMonitorProtocol {
+    var isConnected: Bool = false
     
+    func checkConnection() -> Bool {
+        return isConnected
+    }
+}
+
+class MockNetworkMonitorSuccess: NetworkMonitorProtocol {
+    var isConnected: Bool = true
+    
+    func checkConnection() -> Bool {
+        return isConnected
+    }
 }

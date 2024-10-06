@@ -13,7 +13,7 @@ public enum HTTPMethod: String {
 
 public protocol EndpointProtocol {
     var url: URL? { get }
-    var method: HTTPMethod { get }
+    var params: [String: Any]? { get }
 }
 
 class Endpoint: EndpointProtocol {
@@ -37,10 +37,14 @@ class Endpoint: EndpointProtocol {
             return nil
         }
         
+        if let query = params?.compactMap({ URLQueryItem(name: $0.key, value: String(describing: $0.value)) }) {
+            urlComponent.queryItems = query
+        }
+        
         return urlComponent.url
     }
-    
-    let method: HTTPMethod = .get
+        
+    var params: [String: Any]?
     
     enum Action {
         case getNation
@@ -50,7 +54,8 @@ class Endpoint: EndpointProtocol {
     
     let action: Action
     
-    init(action: Action) {
+    init(action: Action, params: [String: Any]? = nil) {
         self.action = action
+        self.params = params
     }
 }
