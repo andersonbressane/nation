@@ -7,7 +7,8 @@
 
 import Foundation
 
-enum NetworkError: Error {
+enum NetworkError: Error, Equatable {
+    case noConnection
     case badURL
     case noData
     case invalidResponse
@@ -16,18 +17,24 @@ enum NetworkError: Error {
 }
 
 protocol NetworkClientProtocol {
-    func fetchData<T: Codable>(endPoint: EndpointProtocol, completion: @escaping (Result<T, NetworkError>) -> Void)
+    func fetchData(endPoint: EndpointProtocol, completion: @escaping (Result<Data, NetworkError>) -> Void)
 }
 
 class NetworkClient: NetworkClientProtocol {
-    
     let session: URLSession
+    let networkMonitor: NetworkMonitorProtocol
     
-    init(session: URLSession = URLSession.shared) {
+    init(session: URLSession = URLSession.shared, networkMonitor: NetworkMonitorProtocol = NetworkMonitor()) {
         self.session = session
+        self.networkMonitor = networkMonitor
     }
     
-    func fetchData<T: Codable>(endPoint: EndpointProtocol, completion: @escaping (Result<T, NetworkError>) -> Void) {
+    func fetchData(endPoint: EndpointProtocol, completion: @escaping (Result<Data, NetworkError>) -> Void) {
+        if !networkMonitor.checkConnection() {
+            completion(.failure(.noConnection))
+            return
+        }
+        
         guard let url = endPoint.url else {
             completion(.failure(.badURL))
             return
@@ -44,17 +51,12 @@ class NetworkClient: NetworkClientProtocol {
                 return
             }
             
-            guard let data else {
+            guard let data = data else {
                 completion(.failure(.noData))
                 return
             }
             
-            do {
-                let result = try JSONDecoder().decode(T.self, from: data)
-                completion(.success(result))
-            } catch {
-                completion(.failure(.parsingError))
-            }
-        }
+            completion(.success(data))
+        }.resume()
     }
 }
