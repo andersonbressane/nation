@@ -33,6 +33,8 @@ class Endpoint: EndpointProtocol {
             urlComponent.queryItems = [
                 .init(name: "drilldowns", value: "State")
             ]
+        case .none:
+            return nil
         }
         
         return urlComponent.url
@@ -43,6 +45,7 @@ class Endpoint: EndpointProtocol {
     enum Action {
         case getNation
         case getState
+        case none
     }
     
     let action: Action

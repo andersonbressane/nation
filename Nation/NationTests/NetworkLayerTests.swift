@@ -34,6 +34,19 @@ class NetworkLayerTests: XCTestCase {
             }
         }
     }
+    
+    func testBadURL() {
+        let networkClient = NetworkClient(networkMonitor: NetworkMonitorSuccessMock())
+        
+        networkClient.fetchData(endPoint: Endpoint(action: .none)) { result in
+            switch result {
+            case .success(_):
+                XCTFail()
+            case .failure(let error):
+                XCTAssertEqual(error, .badURL)
+            }
+        }
+    }
 }
 
 class URLSessionMock: URLProtocol {
