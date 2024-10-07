@@ -6,36 +6,69 @@
 //
 import SwiftUI
 
+enum LoadingState {
+    case loading, success, failed, none
+}
+
 enum ViewModelProtocolError: Error {
-    case invalidData
+    case noData
 }
 
 protocol ViewModelProtocol {
-    func fetchData(year: Int?) async throws -> [LayoutViewModel]
+    func fetchData(year: Int?) async throws
 }
 
 class ViewModel: ViewModelProtocol, ObservableObject {
-    
     let dataSource: DataSourceProtocol
     
     @Published var layoutViewModels: [LayoutViewModel] = []
     
-    init(dataSource: DataSourceProtocol) {
+    @Published var loadingState: LoadingState = .none
+    
+    @Published var isShowingAlert: Bool = false
+    @Published var alertMessage: String = ""
+    @Published var alertStyle: AlertComponentViewStyle = .error
+    
+    func showError(message: String?, style: AlertComponentViewStyle) {
+        DispatchQueue.main.async {
+            self.isShowingAlert = true
+            self.alertMessage = message ?? ""
+            self.alertStyle = style
+        }
+    }
+    
+    init(dataSource: DataSourceProtocol = DataSource(networkClient: NetworkClient())) {
         self.dataSource = dataSource
     }
     
-    func fetchData(year: Int? = nil) async throws -> [LayoutViewModel] {
+    func fetchData(year: Int? = nil) async throws {
+        DispatchQueue.main.async {
+            self.loadingState = .loading
+        }
+        
         do {
             let nation = try await self.dataSource.fetchNation(year: year)
             
-            self.layoutViewModels = getNationViewModel(from: nation.data)
+            var list = getNationViewModel(from: nation.data)
             
             let states = try await self.dataSource.fetchStates(year: year)
             
-            self.layoutViewModels.append(contentsOf: getStatesLayoutViewModel(from: states.data))
+            list.append(contentsOf: getStatesLayoutViewModel(from: states.data))
             
-            return self.layoutViewModels
+            if list.isEmpty {
+                throw ViewModelProtocolError.noData
+            }
+            
+            DispatchQueue.main.async {
+                self.loadingState = .success
+                self.layoutViewModels = list
+            }
         } catch {
+            DispatchQueue.main.async {
+                self.showError(message: error.localizedDescription, style: .error)
+                self.loadingState = .failed
+            }
+            
             throw error
         }
     }
