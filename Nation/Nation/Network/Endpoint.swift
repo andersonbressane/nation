@@ -19,29 +19,22 @@ class Endpoint: EndpointProtocol {
     var url: URL? {
         guard var urlComponent = URLComponents(string: Constants.baseURL) else { return nil }
         
+        var queryItems: [URLQueryItem] = [
+            .init(name: "measures", value: "Population"),
+            .init(name: "year", value: "latest")
+        ]
+        
         switch action {
         case .getNation:
-            urlComponent.queryItems = [
-                .init(name: "drilldowns", value: "Nation")
-            ]
+            queryItems.append(.init(name: "drilldowns", value: "Nation"))
         case .getState:
-            urlComponent.queryItems = [
-                .init(name: "drilldowns", value: "State")
-            ]
+            queryItems.append(.init(name: "drilldowns", value: "State"))
         case .none:
             return nil
         }
         
-        urlComponent.queryItems = [
-            .init(name: "measures", value: "Population")
-        ]
-        
-        if let year = self.year {
-            urlComponent.queryItems = [
-                .init(name: "year", value: "\(year)")
-            ]
-        }
-        
+        urlComponent.queryItems = queryItems
+
         return urlComponent.url
     }
     
@@ -52,10 +45,8 @@ class Endpoint: EndpointProtocol {
     }
     
     let action: Action
-    let year: Int?
     
     init(action: Action, year: Int? = nil) {
         self.action = action
-        self.year = year
     }
 }

@@ -8,17 +8,39 @@
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var viewModel: ViewModel
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationView {
+            VStack {
+                ListView(layoutViewModel: viewModel.layoutViewModels)
+            }
+            .navigationBarTitle("Nation Data", displayMode: .large)
+        }.onAppear() {
+            Task {
+                try await fetchData()
+            }
         }
-        .padding()
+        .overlay (
+            AlertComponentView(isShowing: $viewModel.isShowingAlert, message: viewModel.alertMessage, style: .error)
+                .padding()
+            ,
+            alignment: .top
+        )
     }
+    
+    func fetchData() async throws {
+        Task {
+            do {
+                _ = try await viewModel.fetchData()
+            } catch {
+                print("Error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
 }
 
 #Preview {
-    ContentView()
+    ContentView(viewModel: ViewModel())
 }
