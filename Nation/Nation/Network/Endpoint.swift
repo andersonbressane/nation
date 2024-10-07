@@ -13,16 +13,11 @@ public enum HTTPMethod: String {
 
 public protocol EndpointProtocol {
     var url: URL? { get }
-    var params: [String: Any]? { get }
 }
 
 class Endpoint: EndpointProtocol {
     var url: URL? {
         guard var urlComponent = URLComponents(string: Constants.baseURL) else { return nil }
-        
-        urlComponent.queryItems = [
-            .init(name: "measures", value: "Population")
-        ]
         
         switch action {
         case .getNation:
@@ -37,14 +32,18 @@ class Endpoint: EndpointProtocol {
             return nil
         }
         
-        if let query = params?.compactMap({ URLQueryItem(name: $0.key, value: String(describing: $0.value)) }) {
-            urlComponent.queryItems = query
+        urlComponent.queryItems = [
+            .init(name: "measures", value: "Population")
+        ]
+        
+        if let year = self.year {
+            urlComponent.queryItems = [
+                .init(name: "year", value: "\(year)")
+            ]
         }
         
         return urlComponent.url
     }
-        
-    var params: [String: Any]?
     
     enum Action {
         case getNation
@@ -53,9 +52,10 @@ class Endpoint: EndpointProtocol {
     }
     
     let action: Action
+    let year: Int?
     
-    init(action: Action, params: [String: Any]? = nil) {
+    init(action: Action, year: Int? = nil) {
         self.action = action
-        self.params = params
+        self.year = year
     }
 }

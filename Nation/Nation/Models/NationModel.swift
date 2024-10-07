@@ -5,13 +5,18 @@
 //  Created by Anderson Bressane on 05/10/2024.
 //
 
-struct Nation: ModelProtocol {
+/*protocol ModelResponseProtocol: Codable {
+    var data: [Codable] { get }
+}*/
+
+struct Nation: Codable, ModelProtocol {
     let id: String
     let name: String
     let idYear: Int
     let year: String
     let population: Int
     let slug: String
+    var type: ModelType = .nation
     
     enum CodingKeys: String, CodingKey {
         case id = "ID Nation"
@@ -21,4 +26,8 @@ struct Nation: ModelProtocol {
         case population = "Population"
         case slug = "Slug Nation"
     }
+}
+
+struct NationResponse: Codable {
+    var data: [Nation]
 }

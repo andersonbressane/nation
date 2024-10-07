@@ -5,13 +5,14 @@
 //  Created by Anderson Bressane on 05/10/2024.
 //
 
-struct State: ModelProtocol {
+struct State: Codable, ModelProtocol {
     let id: String
     let name: String
     let idYear: Int
     let year: String
     let population: Int
     let slug: String
+    var type: ModelType = .state
     
     enum CodingKeys: String, CodingKey {
         case id = "ID State"
@@ -23,3 +24,6 @@ struct State: ModelProtocol {
     }
 }
 
+struct StateResponse: Codable {
+    let data: [State]
+}

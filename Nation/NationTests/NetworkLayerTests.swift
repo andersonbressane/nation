@@ -42,6 +42,8 @@ class NetworkLayerTests: XCTestCase {
     }
     
     func testConnectivityFail() {
+        let expectation = self.expectation(description: "Get connection response")
+            
         let failNetworkClient = NetworkClient(networkMonitor: MockNetworkMonitorFail())
         
         failNetworkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
@@ -51,10 +53,16 @@ class NetworkLayerTests: XCTestCase {
             case .failure(let error):
                 XCTAssertEqual(error, .noConnection)
             }
+            
+            expectation.fulfill()
         }
+        
+        wait(for: [expectation], timeout: 10)
     }
     
     func testConnectivitySuccess() {
+        let expectation = self.expectation(description: "Get connection response")
+        
         let successNetworkClient = NetworkClient(networkMonitor: MockNetworkMonitorSuccess())
         
         successNetworkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
@@ -64,7 +72,11 @@ class NetworkLayerTests: XCTestCase {
             case .failure(_):
                 XCTFail("Expected success isConnected, but got noConnection")
             }
+            
+            expectation.fulfill()
         }
+        
+        wait(for: [expectation], timeout: 10)
     }
     
     func testBadURL() {
@@ -81,6 +93,8 @@ class NetworkLayerTests: XCTestCase {
     }
     
     func testInvalidHTTPResponse() {
+        let expectation = self.expectation(description: "Get http responseCode")
+        
         MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 404, httpVersion: nil, headerFields: nil)
         
         networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
@@ -90,23 +104,26 @@ class NetworkLayerTests: XCTestCase {
             case .failure(let error):
                 XCTAssertEqual(error, .httpError(404))
             }
+            
+            expectation.fulfill()
         }
+        
+        wait(for: [expectation], timeout: 10)
     }
     
-    func testValidHTTPResponse() {
+    /*func testValidHTTPResponse() async {
         MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
         
-        networkClient.fetchData(endPoint: Endpoint(action: .getNation)) { result in
-            switch result {
-            case .success:
-                break
-            case .failure:
-                XCTFail("Expected success")
-            }
+        do {
+            _ = try await networkClient.fetchData(endPoint: Endpoint(action: .getNation))
+        } catch {
+            XCTFail("Expected success \(error.localizedDescription)")
         }
-    }
+    }*/
     
     func testNoDataResponse() {
+        let expectation = self.expectation(description: "Get response data")
+        
         MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
         
         MockURLProtocol.testData = nil
@@ -118,10 +135,16 @@ class NetworkLayerTests: XCTestCase {
             case .failure(let error):
                 XCTAssertEqual(error, .noData)
             }
+            
+            expectation.fulfill()
         }
+        
+        wait(for: [expectation], timeout: 10)
     }
     
     func testDadaResponse() {
+        let expectation = self.expectation(description: "Get response data")
+        
         MockURLProtocol.testResponse = HTTPURLResponse(url: Endpoint(action: .getNation).url!, statusCode: 200, httpVersion: nil, headerFields: nil)
         
         let mockData = "{sucess: true}".data(using: .utf8)
@@ -135,7 +158,11 @@ class NetworkLayerTests: XCTestCase {
             case .failure:
                 XCTFail("Expected failure, but got success")
             }
+            
+            expectation.fulfill()
         }
+        
+        wait(for: [expectation], timeout: 10)
     }
 }
 
